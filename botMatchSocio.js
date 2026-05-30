@@ -17,30 +17,42 @@ if (!DEEPSEEK_KEY) {
 }
 
 const CATEGORIAS_MATCH = [
-  "Herramientas", "Hogar", "Cocina", "Figuras", "Estetica",
-  "Peliculas", "Oficina", "Juegos de Mesa", "Arte", "Camping",
-  "Videojuegos", "Iluminacion", "Musica", "Agricultura",
-  "Mascotas", "Computacion", "Electronica"
+ "Agricultura", "Arte", "Camping", "Carros", "Cocina", "Computacion",
+"Deportes", "Electronica", "Estetica", "Figuras", "Fotografia",
+"Herramientas", "Hogar", "Iluminacion", "impresion3d", "Juegos de mesa",
+"Juguetes", "Manualidades", "Mascotas", "Musica", "Peliculas",
+"Radiocontrol", "Sublimacion", "Videojuegos", "Acuarofilia",
+"Juguetes sexuales", "Adaptadores de corriente"
 ];
 
 const GRUPOS_CATEGORIAS_MATCH = {
-  "Herramientas": "-1003721206046",
-  "Hogar": "-4947912454",
-  "Cocina": "-1003833669870",
-  "Figuras": "-1003753511155",
-  "Estetica": "-1003483354519",
-  "Peliculas": "-1003703934986",
-  "Oficina": "-1003298507187",
-  "Juegos de Mesa": "-1003874142104",
+ "Agricultura": "-1003437569403",
   "Arte": "-1003895501867",
   "Camping": "-1003829896170",
-  "Videojuegos": "-1003721430042",
-  "Iluminacion": "-1003898343727",
-  "Musica": "-1003817435909",
-  "Agricultura": "-1003437569403",
-  "Mascotas": "-1003713638710",
+  "Carros": "-1003949961630",
+  "Cocina": "-1003833669870",
   "Computacion": "-1003867450140",
-  "Electronica": "-1003847817905"
+  "Deportes": "-1003828714279",
+  "Electronica": "-1003847817905",
+  "Estetica": "-1003483354519",
+  "Figuras": "-1003753511155",
+  "Fotografia": "-1003882725152",
+  "Herramientas": "-1003721206046",
+  "Hogar": "-1003840007865",
+  "Iluminacion": "-1003898343727",
+  "impresion3d": "-1003985018268",
+  "Juegos de mesa": "-1003874142104",
+  "Juguetes": "-1003905671566",
+  "Manualidades": "-1003722195842",
+  "Mascotas": "-1003713638710",
+  "Musica": "-1003817435909",
+  "Peliculas": "-1003703934986",
+  "Radiocontrol": "-1003884473704",
+  "Sublimacion": "-1003995468274",
+  "Videojuegos": "-1003721430042",
+  "Acuarofilia": "-5192772044",
+  "Juguetes sexuales": "-5149536441",
+  "Adaptadores de corriente": "-5215022991"
 };
 
 
