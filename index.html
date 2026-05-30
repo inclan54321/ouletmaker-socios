@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Outlet Socios - Acceso</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0a0f1e 0%, #0c1322 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 450px;
+      padding: 20px;
+    }
+
+    .login-card {
+      background: rgba(18, 25, 40, 0.95);
+      border-radius: 24px;
+      padding: 40px 32px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      backdrop-filter: blur(10px);
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo h1 {
+      font-size: 28px;
+      color: #ffd700;
+      letter-spacing: 2px;
+    }
+
+    .logo p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 32px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 12px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 8px 16px;
+      transition: all 0.3s;
+    }
+
+    .tab-btn.active {
+      color: #ffd700;
+      border-bottom: 2px solid #ffd700;
+    }
+
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    .form-group label {
+      display: block;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      color: white;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #ffd700;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .form-group input::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #ffd700, #ffaa00);
+      border: none;
+      border-radius: 12px;
+      color: #000;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(255, 215, 0, 0.3);
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 14px;
+      background: transparent;
+      border: 1px solid rgba(255, 215, 0, 0.5);
+      border-radius: 12px;
+      color: #ffd700;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 12px;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 215, 0, 0.1);
+    }
+
+    .message {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 10px;
+      text-align: center;
+      font-size: 14px;
+      display: none;
+    }
+
+    .message.error {
+      background: rgba(255, 68, 68, 0.2);
+      border: 1px solid rgba(255, 68, 68, 0.5);
+      color: #ff6666;
+      display: block;
+    }
+
+    .message.success {
+      background: rgba(68, 255, 68, 0.2);
+      border: 1px solid rgba(68, 255, 68, 0.5);
+      color: #66ff66;
+      display: block;
+    }
+
+    .form-hidden {
+      display: none;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 24px;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="logo">
+        <h1>⭐ OUTLET SOCIOS ⭐</h1>
+        <p>Área exclusiva para vendedores</p>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="login">Iniciar Sesión</button>
+        <button class="tab-btn" data-tab="register">Registrarse</button>
+      </div>
+
+      <!-- FORMULARIO DE LOGIN -->
+      <div id="loginForm" class="form-panel">
+        <div class="form-group">
+          <label>📧 Correo electrónico</label>
+          <input type="email" id="loginEmail" placeholder="tu@email.com">
+        </div>
+        <div class="form-group">
+          <label>🔒 Contraseña</label>
+          <input type="password" id="loginPassword" placeholder="••••••••">
+        </div>
+        <button class="btn-primary" id="btnLogin">Ingresar</button>
+        <div id="loginMessage" class="message"></div>
+      </div>
+
+      <!-- FORMULARIO DE REGISTRO -->
+      <div id="registerForm" class="form-panel form-hidden">
+        <div class="form-group">
+          <label>👤 Nombre completo</label>
+          <input type="text" id="regNombre" placeholder="Juan Pérez">
+        </div>
+        <div class="form-group">
+          <label>📧 Correo electrónico</label>
+          <input type="email" id="regEmail" placeholder="tu@email.com">
+        </div>
+        <div class="form-group">
+          <label>📱 Teléfono (WhatsApp)</label>
+          <input type="tel" id="regTelefono" placeholder="+506 8888 8888">
+        </div>
+        <div class="form-group">
+          <label>🔒 Contraseña</label>
+          <input type="password" id="regPassword" placeholder="••••••••">
+        </div>
+        <div class="form-group">
+          <label>🔒 Confirmar contraseña</label>
+          <input type="password" id="regConfirmPassword" placeholder="••••••••">
+        </div>
+        <button class="btn-primary" id="btnRegister">Crear cuenta</button>
+        <div id="registerMessage" class="message"></div>
+      </div>
+
+      <footer>
+        © 2026 Outlet Maker - Área de Socios
+      </footer>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
