@@ -1042,6 +1042,19 @@ bot.on("contact", async (msg) => {
   const vendedorId = conversacionesActivas[clienteId];
   
   if (vendedorId) {
+    // ========== GUARDAR CONVERSACIÓN EN BD ==========
+    const mensajes = conversacionesTemporales[clienteId] || [];
+    
+    for (const m of mensajes) {
+      await pool.query(
+        `INSERT INTO conversaciones (cliente_id, vendedor_id, mensaje, remitente, created_at)
+         VALUES ($1, $2, $3, $4, to_timestamp($5))`,
+        [String(clienteId), String(vendedorId), m.mensaje, m.remitente, m.timestamp / 1000]
+      );
+    }
+    console.log(`✅ Conversación guardada: ${mensajes.length} mensajes`);
+    // =============================================
+    
     // Obtener el producto activo y marcarlo como vendido
     const socioIdResult = await pool.query(
       `SELECT id FROM socios WHERE telegram_chat_id = $1`,
@@ -1065,31 +1078,28 @@ bot.on("contact", async (msg) => {
     
     await bot.sendMessage(vendedorId, `📞 *El cliente ${nombre} ha compartido su número:*\n${telefono}`, { parse_mode: "Markdown" });
     
-    // Preguntar por estrellas al cliente
+    // Botones de calificación...
     const botonesEstrellas = {
       reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "⭐ 1", callback_data: `calificar_1_${vendedorId}` },
-            { text: "⭐⭐ 2", callback_data: `calificar_2_${vendedorId}` },
-            { text: "⭐⭐⭐ 3", callback_data: `calificar_3_${vendedorId}` },
-            { text: "⭐⭐⭐⭐ 4", callback_data: `calificar_4_${vendedorId}` },
-            { text: "⭐⭐⭐⭐⭐ 5", callback_data: `calificar_5_${vendedorId}` }
-          ]
-        ]
+        inline_keyboard: [[
+          { text: "⭐ 1", callback_data: `calificar_1_${vendedorId}` },
+          { text: "⭐⭐ 2", callback_data: `calificar_2_${vendedorId}` },
+          { text: "⭐⭐⭐ 3", callback_data: `calificar_3_${vendedorId}` },
+          { text: "⭐⭐⭐⭐ 4", callback_data: `calificar_4_${vendedorId}` },
+          { text: "⭐⭐⭐⭐⭐ 5", callback_data: `calificar_5_${vendedorId}` }
+        ]]
       }
     };
     
     await bot.sendMessage(clienteId, 
       "✅ *¡Gracias por tu compra!*\n\n" +
       "El vendedor recibió tu número y se pondrá en contacto contigo.\n\n" +
-      "⭐ *¿Cómo calificas la experiencia con este vendedor?*\n" +
-      "(Puedes calificarlo ahora o después con el comando /calificar)",
+      "⭐ *¿Cómo calificas la experiencia con este vendedor?*",
       { parse_mode: "Markdown", ...botonesEstrellas }
     );
   }
   
-  // Limpiar conversación
+  // Limpiar conversación (DESPUÉS de guardar)
   delete conversacionesActivas[clienteId];
   delete conversacionesActivas[vendedorId];
   delete conversacionesTemporales[clienteId];
