@@ -318,7 +318,17 @@ if (req.method === "POST" && req.url === "/api/socios/login") {
     res.end(data);
   });
 });
-
+// ============= INICIAR BOT DE TELEGRAM (SOCIO MATCH) =============
+let botMatchSocio = null;
+try {
+  const { bot } = require("./botMatchSocio");
+  botMatchSocio = bot;
+  console.log("✅ BotMatchSocio iniciado correctamente");
+} catch (e) {
+  console.error("❌ Error iniciando BotMatchSocio:", e.message);
+}
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Servidor socios corriendo en http://localhost:${PORT}`);
 });
+
+module.exports = { bot: botMatchSocio };
