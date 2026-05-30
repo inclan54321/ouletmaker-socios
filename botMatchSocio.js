@@ -1035,6 +1035,12 @@ bot.onText(/\/finalizar/, async (msg) => {
   await bot.sendMessage(destinoId, "✅ La conversación ha finalizado. Gracias por usar Outlet Maker.");
 });
 bot.on("contact", async (msg) => {
+   console.log("📞📞📞 EVENTO CONTACT DISPARADO 📞📞📞");
+  console.log("📞 chatId:", msg.chat.id);
+  console.log("📞 contacto:", msg.contact);
+  console.log("📞 conversacionesActivas:", JSON.stringify(conversacionesActivas, null, 2));
+  console.log("📞 conversacionesTemporales:", Object.keys(conversacionesTemporales));
+  
   const clienteId = msg.chat.id;
   const telefono = msg.contact.phone_number;
   const nombre = msg.contact.first_name;
