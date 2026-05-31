@@ -435,6 +435,50 @@ Responde SOLO con JSON:
     return { cumplidos: [], pendientes: [] };
   }
 }
+
+async function consultarDeepSeek(pregunta, contexto) {
+    const body = JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+            { role: "system", content: "Eres un asistente que responde preguntas sobre vendedores basándote en datos reales. Responde de forma clara, amigable y útil." },
+            { role: "user", content: `Contexto del vendedor:\n${contexto}\n\nPregunta del usuario: "${pregunta}"\n\nResponde en español.` }
+        ],
+        max_tokens: 300,
+        temperature: 0.7
+    });
+    
+    try {
+        const response = await new Promise((resolve, reject) => {
+            const req = https.request({
+                hostname: "api.deepseek.com",
+                path: "/v1/chat/completions",
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${DEEPSEEK_KEY}`,
+                    "Content-Length": Buffer.byteLength(body)
+                }
+            }, (res) => {
+                let data = "";
+                res.on("data", c => data += c);
+                res.on("end", () => resolve({ status: res.statusCode, data }));
+            });
+            req.on("error", reject);
+            req.write(body);
+            req.end();
+        });
+
+        if (response.status !== 200) return "Lo siento, no pude procesar tu pregunta en este momento.";
+        
+        const json = JSON.parse(response.data);
+        return json.choices[0].message.content;
+        
+    } catch (e) {
+        console.error("Error en DeepSeek:", e.message);
+        return "Lo siento, ocurrió un error. Intenta de nuevo.";
+    }
+}
+
 async function verificarPuntosCubiertos(respuesta, puntosPendientes) {
   const prompt = `
     Responde SOLO con JSON.
@@ -1628,5 +1672,91 @@ bot.onText(/\/calificar/, async (msg) => {
   await bot.sendMessage(chatId, "⭐ *Califica tu experiencia con el vendedor:*", { parse_mode: "Markdown", ...botonesEstrellas });
 });
 
+// Manejar preguntas personalizadas del historial con IA
+bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    const texto = msg.text;
+    
+    if (!texto || texto.startsWith('/')) return;
+    
+    const sesion = sesionesConsulta[chatId];
+    if (!sesion || !sesion.personalizada) return;
+    
+    const socioNumId = sesion.socioNumId;
+    
+    try {
+        const socioResult = await pool.query(
+            `SELECT id, nombre, estrellas, total_calificaciones FROM socios WHERE num_id = $1`,
+            [socioNumId]
+        );
+        
+        if (socioResult.rows.length === 0) {
+            await bot.sendMessage(chatId, "❌ Vendedor no encontrado.");
+            delete sesionesConsulta[chatId];
+            return;
+        }
+        
+        const socio = socioResult.rows[0];
+        const socioUuid = socio.id;
+        
+        const conversacionesResult = await pool.query(
+            `SELECT COUNT(DISTINCT cliente_id) as total_clientes 
+             FROM conversaciones WHERE vendedor_id = $1`,
+            [String(socioUuid)]
+        );
+        const totalClientes = conversacionesResult.rows[0]?.total_clientes || 0;
+        
+        const productosResult = await pool.query(
+            `SELECT COUNT(*) as vendidos 
+             FROM productos_socios WHERE socio_id = $1 AND estado = 'vendido'`,
+            [socioUuid]
+        );
+        const productosVendidos = productosResult.rows[0]?.vendidos || 0;
+        
+        const mensajesResult = await pool.query(
+            `SELECT COUNT(*) as total_mensajes 
+             FROM conversaciones WHERE vendedor_id = $1 AND remitente = 'vendedor'`,
+            [String(socioUuid)]
+        );
+        const totalMensajes = mensajesResult.rows[0]?.total_mensajes || 0;
+        
+        const calificacion = parseFloat(socio.estrellas) || 0;
+        
+        const contexto = `
+VENDEDOR: ${socio.nombre}
+CALIFICACIÓN: ${calificacion.toFixed(1)} ★ (basada en ${socio.total_calificaciones || 0} calificaciones)
+PRODUCTOS VENDIDOS: ${productosVendidos}
+CLIENTES ATENDIDOS: ${totalClientes}
+MENSAJES ENVIADOS: ${totalMensajes}
 
+Responde la pregunta del usuario de forma amigable y útil, basándote en estos datos reales.
+`;
+        
+        const respuestaIA = await consultarDeepSeek(texto, contexto);
+        
+        const botonesContinuar = {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: "🔍 Hacer otra pregunta", callback_data: `seguir_preguntando_${socioNumId}` }],
+                    [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}` }]
+                ]
+            }
+        };
+        
+        await bot.sendMessage(chatId, 
+            `🤖 *Respuesta sobre ${socio.nombre}:*\n\n${respuestaIA}`,
+            { parse_mode: "Markdown", ...botonesContinuar }
+        );
+        
+        // Limpiar la sesión después de responder
+        delete sesionesConsulta[chatId];
+        
+    } catch (error) {
+        console.error("Error en consulta IA:", error);
+        await bot.sendMessage(chatId, "❌ Error al procesar tu pregunta. Intenta de nuevo.");
+        delete sesionesConsulta[chatId];
+    }
+});
+
+console.log("🎯 BotMatch Socio iniciado...");
 console.log("🎯 BotMatch Socio iniciado...");
