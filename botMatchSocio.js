@@ -435,13 +435,7 @@ Responde SOLO con JSON:
     return { cumplidos: [], pendientes: [] };
   }
 }
-console.log("📊 DATOS ENVIADOS A IA:");
-console.log("   socio.nombre:", socio.nombre);
-console.log("   calificacion:", calificacion);
-console.log("   totalCalificaciones:", socio.total_calificaciones);
-console.log("   productosVendidos:", productosVendidos);
-console.log("   totalClientes:", totalClientes);
-console.log("   totalMensajes:", totalMensajes);
+
 async function consultarDeepSeek(pregunta, contexto) {
     const body = JSON.stringify({
         model: "deepseek-chat",
