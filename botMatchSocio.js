@@ -176,7 +176,7 @@ async function detectarIntencion(mensaje) {
     return { intencion: "ninguna", confianza: 0 };
   }
 }
-const sesionesConsulta = {}; // { chatId: { socioNumId, esperandoPregunta: true, personalizada: false } }
+ // { chatId: { socioNumId, esperandoPregunta: true, personalizada: false } }
 
 async function responderPreguntaHistorial(chatId, socioNumId, tipoPregunta) {
   try {
