@@ -1729,6 +1729,21 @@ const conversacionesResult = await pool.query(
         
         const calificacion = parseFloat(socio.estrellas) || 0;
         
+        // Obtener los últimos 10 mensajes de la conversación
+        const mensajesRecientes = await pool.query(
+            `SELECT remitente, mensaje, created_at 
+             FROM conversaciones 
+             WHERE vendedor_id = $1 
+             ORDER BY created_at DESC 
+             LIMIT 10`,
+            [String(vendedorTelegramId)]
+        );
+
+        let historialMensajes = "";
+        for (const m of mensajesRecientes.rows) {
+            historialMensajes += `[${m.remitente}]: ${m.mensaje}\n`;
+        }
+
         const contexto = `
 VENDEDOR: ${socio.nombre}
 CALIFICACIÓN: ${calificacion.toFixed(1)} ★ (basada en ${socio.total_calificaciones || 0} calificaciones)
@@ -1736,7 +1751,10 @@ PRODUCTOS VENDIDOS: ${productosVendidos}
 CLIENTES ATENDIDOS: ${totalClientes}
 MENSAJES ENVIADOS: ${totalMensajes}
 
-Responde la pregunta del usuario de forma amigable y útil, basándote en estos datos reales.
+ÚLTIMOS MENSAJES DE LA CONVERSACIÓN:
+${historialMensajes}
+
+Responde la pregunta del usuario de forma amigable y útil, basándote en estos datos reales y en el contenido de los mensajes.
 `;
         
         const respuestaIA = await consultarDeepSeek(texto, contexto);
