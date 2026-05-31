@@ -435,7 +435,13 @@ Responde SOLO con JSON:
     return { cumplidos: [], pendientes: [] };
   }
 }
-
+console.log("📊 DATOS ENVIADOS A IA:");
+console.log("   socio.nombre:", socio.nombre);
+console.log("   calificacion:", calificacion);
+console.log("   totalCalificaciones:", socio.total_calificaciones);
+console.log("   productosVendidos:", productosVendidos);
+console.log("   totalClientes:", totalClientes);
+console.log("   totalMensajes:", totalMensajes);
 async function consultarDeepSeek(pregunta, contexto) {
     const body = JSON.stringify({
         model: "deepseek-chat",
@@ -1699,11 +1705,18 @@ bot.on('message', async (msg) => {
         const socio = socioResult.rows[0];
         const socioUuid = socio.id;
         
-        const conversacionesResult = await pool.query(
-            `SELECT COUNT(DISTINCT cliente_id) as total_clientes 
-             FROM conversaciones WHERE vendedor_id = $1`,
-            [String(socioUuid)]
-        );
+        // Obtener el telegram_chat_id del vendedor
+const vendedorTelegramResult = await pool.query(
+    `SELECT telegram_chat_id FROM socios WHERE id = $1`,
+    [socioUuid]
+);
+const vendedorTelegramId = vendedorTelegramResult.rows[0]?.telegram_chat_id;
+
+const conversacionesResult = await pool.query(
+    `SELECT COUNT(DISTINCT cliente_id) as total_clientes 
+     FROM conversaciones WHERE vendedor_id = $1`,
+    [String(vendedorTelegramId)]
+);
         const totalClientes = conversacionesResult.rows[0]?.total_clientes || 0;
         
         const productosResult = await pool.query(
