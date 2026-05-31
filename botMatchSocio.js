@@ -257,10 +257,7 @@ async function responderPreguntaHistorial(chatId, socioNumId, tipoPregunta) {
 }
 const bot = new TelegramBot(SOCIO_BOT_TOKEN, { polling: true });
 
-// LOG PARA VER TODOS LOS MENSAJES
-bot.on('message', (msg) => {
-  console.log("📨 MENSAJE RECIBIDO:", msg.text);
-});
+
 
 // Ver payload de cualquier /start
 bot.onText(/\/start(.*)/, (msg, match) => {
@@ -1672,15 +1669,19 @@ bot.onText(/\/calificar/, async (msg) => {
   await bot.sendMessage(chatId, "⭐ *Califica tu experiencia con el vendedor:*", { parse_mode: "Markdown", ...botonesEstrellas });
 });
 
-// Manejar preguntas personalizadas del historial con IA
+// ============= MANEJAR PREGUNTAS PERSONALIZADAS (IA) - PRIMERO =============
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const texto = msg.text;
+    
+    console.log("📨 MENSAJE RECIBIDO:", texto);
     
     if (!texto || texto.startsWith('/')) return;
     
     const sesion = sesionesConsulta[chatId];
     if (!sesion || !sesion.personalizada) return;
+    
+    console.log("🤖 [IA HANDLER] Procesando pregunta personalizada - NO se reenviará");
     
     const socioNumId = sesion.socioNumId;
     
@@ -1700,17 +1701,17 @@ bot.on('message', async (msg) => {
         const socioUuid = socio.id;
         
         // Obtener el telegram_chat_id del vendedor
-const vendedorTelegramResult = await pool.query(
-    `SELECT telegram_chat_id FROM socios WHERE id = $1`,
-    [socioUuid]
-);
-const vendedorTelegramId = vendedorTelegramResult.rows[0]?.telegram_chat_id;
-
-const conversacionesResult = await pool.query(
-    `SELECT COUNT(DISTINCT cliente_id) as total_clientes 
-     FROM conversaciones WHERE vendedor_id = $1`,
-    [String(vendedorTelegramId)]
-);
+        const vendedorTelegramResult = await pool.query(
+            `SELECT telegram_chat_id FROM socios WHERE id = $1`,
+            [socioUuid]
+        );
+        const vendedorTelegramId = vendedorTelegramResult.rows[0]?.telegram_chat_id;
+        
+        const conversacionesResult = await pool.query(
+            `SELECT COUNT(DISTINCT cliente_id) as total_clientes 
+             FROM conversaciones WHERE vendedor_id = $1`,
+            [String(vendedorTelegramId)]
+        );
         const totalClientes = conversacionesResult.rows[0]?.total_clientes || 0;
         
         const productosResult = await pool.query(
@@ -1723,7 +1724,7 @@ const conversacionesResult = await pool.query(
         const mensajesResult = await pool.query(
             `SELECT COUNT(*) as total_mensajes 
              FROM conversaciones WHERE vendedor_id = $1 AND remitente = 'vendedor'`,
-            [String(socioUuid)]
+            [String(vendedorTelegramId)]
         );
         const totalMensajes = mensajesResult.rows[0]?.total_mensajes || 0;
         
@@ -1773,13 +1774,14 @@ Responde la pregunta del usuario de forma amigable y útil, basándote en estos 
             { parse_mode: "Markdown", ...botonesContinuar }
         );
         
-        // Limpiar la sesión después de responder
         delete sesionesConsulta[chatId];
+        return; // ← CRUCIAL: evita que otros manejadores procesen este mensaje
         
     } catch (error) {
         console.error("Error en consulta IA:", error);
         await bot.sendMessage(chatId, "❌ Error al procesar tu pregunta. Intenta de nuevo.");
         delete sesionesConsulta[chatId];
+        return;
     }
 });
 
