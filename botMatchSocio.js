@@ -21,7 +21,7 @@ const CATEGORIAS_MATCH = [
 "Deportes", "Electronica", "Estetica", "Figuras", "Fotografia",
 "Herramientas", "Hogar", "Iluminacion", "impresion3d", "Juegos de mesa",
 "Juguetes", "Manualidades", "Mascotas", "Musica", "Peliculas",
-"Radiocontrol", "Sublimacion", "Videojuegos", "Acuarofilia",
+"Radiocontrol", "Sublimacion", "Videojuegos", "Acuarofilia y pesca",
 "Juguetes sexuales", "Adaptadores de corriente"
 ];
 
@@ -50,7 +50,7 @@ const GRUPOS_CATEGORIAS_MATCH = {
   "Radiocontrol": "-1003884473704",
   "Sublimacion": "-1003995468274",
   "Videojuegos": "-1003721430042",
-  "Acuarofilia": "-5192772044",
+  "Acuarofilia y pesca": "-5192772044",
   "Juguetes sexuales": "-5149536441",
   "Adaptadores de corriente": "-5215022991"
 };
