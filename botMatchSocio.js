@@ -176,7 +176,85 @@ async function detectarIntencion(mensaje) {
     return { intencion: "ninguna", confianza: 0 };
   }
 }
+const sesionesConsulta = {}; // { chatId: { socioNumId, esperandoPregunta: true, personalizada: false } }
 
+async function responderPreguntaHistorial(chatId, socioNumId, tipoPregunta) {
+  try {
+    const socioResult = await pool.query(
+      `SELECT id, nombre, estrellas, total_calificaciones FROM socios WHERE num_id = $1`,
+      [socioNumId]
+    );
+    
+    if (socioResult.rows.length === 0) {
+      await bot.sendMessage(chatId, "❌ Vendedor no encontrado.");
+      return;
+    }
+    
+    const socio = socioResult.rows[0];
+    const socioUuid = socio.id;
+    
+    // Estadísticas reales
+    const conversacionesResult = await pool.query(
+      `SELECT COUNT(DISTINCT cliente_id) as total_clientes 
+       FROM conversaciones WHERE vendedor_id = $1`,
+      [String(socioUuid)]
+    );
+    const totalClientes = conversacionesResult.rows[0]?.total_clientes || 0;
+    
+    const productosResult = await pool.query(
+      `SELECT COUNT(*) as vendidos 
+       FROM productos_socios WHERE socio_id = $1 AND estado = 'vendido'`,
+      [socioUuid]
+    );
+    const productosVendidos = productosResult.rows[0]?.vendidos || 0;
+    
+    const mensajesResult = await pool.query(
+      `SELECT COUNT(*) as total_mensajes 
+       FROM conversaciones WHERE vendedor_id = $1 AND remitente = 'vendedor'`,
+      [String(socioUuid)]
+    );
+    const totalMensajes = mensajesResult.rows[0]?.total_mensajes || 0;
+    
+    const calificacion = parseFloat(socio.estrellas) || 0;
+    const totalCalif = socio.total_calificaciones || 0;
+    const estrellasLlenas = "★".repeat(Math.floor(calificacion));
+    const estrellasVacias = "☆".repeat(5 - Math.floor(calificacion));
+    
+    let respuesta = "";
+    
+    switch(tipoPregunta) {
+      case "ventas":
+        respuesta = `📦 *${socio.nombre}* ha vendido *${productosVendidos}* productos.`;
+        break;
+      case "mensajes":
+        respuesta = `💬 *${socio.nombre}* ha enviado *${totalMensajes}* mensajes en total.`;
+        break;
+      case "calificacion":
+        respuesta = `⭐ *${socio.nombre}* tiene una calificación de *${calificacion.toFixed(1)}* estrellas ${estrellasLlenas}${estrellasVacias} (basada en ${totalCalif} calificaciones).`;
+        break;
+      case "clientes":
+        respuesta = `👥 *${socio.nombre}* ha atendido a *${totalClientes}* clientes diferentes.`;
+        break;
+      default:
+        respuesta = `Aquí están los datos de *${socio.nombre}*:\n\n• 📦 Productos vendidos: ${productosVendidos}\n• 💬 Mensajes enviados: ${totalMensajes}\n• ⭐ Calificación: ${calificacion.toFixed(1)} ★\n• 👥 Clientes atendidos: ${totalClientes}`;
+    }
+    
+    const botonesContinuar = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔍 Seguir preguntando", callback_data: `seguir_preguntando_${socioNumId}` }],
+          [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}` }]
+        ]
+      }
+    };
+    
+    await bot.sendMessage(chatId, respuesta, { parse_mode: "Markdown", ...botonesContinuar });
+    
+  } catch (error) {
+    console.error("Error en responderPreguntaHistorial:", error);
+    await bot.sendMessage(chatId, "❌ Error al consultar el historial.");
+  }
+}
 const bot = new TelegramBot(SOCIO_BOT_TOKEN, { polling: true });
 
 // LOG PARA VER TODOS LOS MENSAJES
@@ -199,7 +277,7 @@ const publicacionesPorHora = {}; // memoria RAM
 const conversacionesActivas = {}; // { chatId: chatIdDestino }
 // Guardado temporal de mensajes por conversación
 const conversacionesTemporales = {}; // { chatId: [{ remitente, mensaje, timestamp }] }
-
+const sesionesConsulta = {}; // { chatId: { socioNumId, esperandoPregunta: true, personalizada: false } }
 function puedePublicar(chatId) {
   const ahora = Date.now();
   const unaHora = 60 * 60 * 1000;
@@ -687,8 +765,97 @@ bot.on("callback_query", async (query) => {
   }
   
   if (data.startsWith("historial_")) {
-    await bot.answerCallbackQuery(query.id, { text: "🔍 Consultando historial..." });
-    await bot.sendMessage(chatId, "📊 *Historial del vendedor*\n\n• 15 ventas completadas\n• 12 calificaciones positivas\n• 0 quejas registradas\n• Tiempo promedio de respuesta: 10 minutos", { parse_mode: "Markdown" });
+    await bot.answerCallbackQuery(query.id, { text: "🔍 Abriendo consultoría..." });
+    
+    const partes = data.split("_");
+    const socioNumId = partes[1];
+    
+    // Guardar sesión de consulta para este cliente
+    sesionesConsulta[chatId] = { socioNumId, esperandoPregunta: true };
+    
+    const mensajeBienvenida = 
+        `📊 *Consultoría de Vendedor*\n\n` +
+        `Puedes preguntarme lo que quieras saber sobre este vendedor. Ejemplos:\n\n` +
+        `• "¿Cuántas ventas ha hecho?"\n` +
+        `• "¿Qué tan rápido responde?"\n` +
+        `• "¿Los clientes están satisfechos?"\n` +
+        `• "¿Cuántos mensajes ha enviado?"\n` +
+        `• "Cuéntame sobre su reputación"\n\n` +
+        `❓ *Escribe tu pregunta o selecciona una opción:*`;
+    
+    const botonesPreguntas = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "📦 ¿Cuántos productos ha vendido?", callback_data: `pregunta_ventas_${socioNumId}` }],
+          [{ text: "💬 ¿Cuántos mensajes ha enviado?", callback_data: `pregunta_mensajes_${socioNumId}` }],
+          [{ text: "⭐ ¿Cuál es su calificación?", callback_data: `pregunta_calificacion_${socioNumId}` }],
+          [{ text: "👥 ¿Cuántos clientes ha atendido?", callback_data: `pregunta_clientes_${socioNumId}` }],
+          [{ text: "🎤 Preguntar algo personalizado", callback_data: `pregunta_personalizada_${socioNumId}` }],
+          [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}` }]
+        ]
+      }
+    };
+    
+    await bot.sendMessage(chatId, mensajeBienvenida, { parse_mode: "Markdown", ...botonesPreguntas });
+    return;
+  }
+    // Preguntas predefinidas del historial
+  if (data.startsWith("pregunta_ventas_")) {
+    const socioNumId = data.split("_")[2];
+    await responderPreguntaHistorial(chatId, socioNumId, "ventas");
+    return;
+  }
+  
+  if (data.startsWith("pregunta_mensajes_")) {
+    const socioNumId = data.split("_")[2];
+    await responderPreguntaHistorial(chatId, socioNumId, "mensajes");
+    return;
+  }
+  
+  if (data.startsWith("pregunta_calificacion_")) {
+    const socioNumId = data.split("_")[2];
+    await responderPreguntaHistorial(chatId, socioNumId, "calificacion");
+    return;
+  }
+  
+  if (data.startsWith("pregunta_clientes_")) {
+    const socioNumId = data.split("_")[2];
+    await responderPreguntaHistorial(chatId, socioNumId, "clientes");
+    return;
+  }
+  
+  if (data.startsWith("pregunta_personalizada_")) {
+    const socioNumId = data.split("_")[2];
+    sesionesConsulta[chatId] = { socioNumId, esperandoPregunta: true, personalizada: true };
+    await bot.sendMessage(chatId, "✏️ *Escribe tu pregunta personalizada:*", { parse_mode: "Markdown" });
+    return;
+  }
+  
+  if (data.startsWith("salir_consulta_")) {
+    const socioNumId = data.split("_")[2];
+    delete sesionesConsulta[chatId];
+    await bot.sendMessage(chatId, "✅ *Consultoría finalizada. ¡Gracias por usar Outlet Maker!*", { parse_mode: "Markdown" });
+    return;
+  }
+  
+  if (data.startsWith("seguir_preguntando_")) {
+    const socioNumId = data.split("_")[2];
+    sesionesConsulta[chatId] = { socioNumId, esperandoPregunta: true };
+    
+    const botonesOpciones = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "📦 Productos vendidos", callback_data: `pregunta_ventas_${socioNumId}` }],
+          [{ text: "💬 Mensajes enviados", callback_data: `pregunta_mensajes_${socioNumId}` }],
+          [{ text: "⭐ Calificación", callback_data: `pregunta_calificacion_${socioNumId}` }],
+          [{ text: "👥 Clientes atendidos", callback_data: `pregunta_clientes_${socioNumId}` }],
+          [{ text: "✏️ Pregunta personalizada", callback_data: `pregunta_personalizada_${socioNumId}` }],
+          [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}` }]
+        ]
+      }
+    };
+    
+    await bot.sendMessage(chatId, "❓ *¿Qué más quieres saber sobre este vendedor?*", { parse_mode: "Markdown", ...botonesOpciones });
     return;
   }
   
