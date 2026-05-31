@@ -239,11 +239,13 @@ async function responderPreguntaHistorial(chatId, socioNumId, tipoPregunta) {
         respuesta = `Aquí están los datos de *${socio.nombre}*:\n\n• 📦 Productos vendidos: ${productosVendidos}\n• 💬 Mensajes enviados: ${totalMensajes}\n• ⭐ Calificación: ${calificacion.toFixed(1)} ★\n• 👥 Clientes atendidos: ${totalClientes}`;
     }
     
+    // Necesitas obtener productoNumId aquí. Si no lo tienes, necesitas pasarlo como parámetro.
+    // Por ahora, déjalo así o agrega un productoNumId por defecto
     const botonesContinuar = {
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🔍 Seguir preguntando", callback_data: `seguir_preguntando_${socioNumId}` }],
-          [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}` }]
+          [{ text: "🔍 Seguir preguntando", callback_data: `seguir_preguntando_${socioNumId}_1` }],
+          [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}_1` }]
         ]
       }
     };
@@ -874,13 +876,27 @@ bot.on("callback_query", async (query) => {
   
   if (data.startsWith("salir_consulta_")) {
     const socioNumId = data.split("_")[2];
+    const productoNumId = data.split("_")[3];
     delete sesionesConsulta[chatId];
-    await bot.sendMessage(chatId, "✅ *Consultoría finalizada. ¡Gracias por usar Outlet Maker!*", { parse_mode: "Markdown" });
+    
+    // Mostrar el menú principal nuevamente
+    const botonesMenu = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "📋 CONSULTAR HISTORIAL DEL VENDEDOR", callback_data: `historial_${socioNumId}_${productoNumId}` }],
+          [{ text: "💬 HABLAR DIRECTAMENTE CON EL VENDEDOR", callback_data: `hablar_${socioNumId}_${productoNumId}` }]
+        ]
+      }
+    };
+    
+    await bot.sendMessage(chatId, "📋 *Menú principal:*", { parse_mode: "Markdown", ...botonesMenu });
     return;
   }
   
-  if (data.startsWith("seguir_preguntando_")) {
-    const socioNumId = data.split("_")[2];
+   if (data.startsWith("seguir_preguntando_")) {
+    const partes = data.split("_");
+    const socioNumId = partes[2];
+    const productoNumId = partes[3];
     sesionesConsulta[chatId] = { socioNumId, esperandoPregunta: true };
     
     const botonesOpciones = {
@@ -891,7 +907,7 @@ bot.on("callback_query", async (query) => {
           [{ text: "⭐ Calificación", callback_data: `pregunta_calificacion_${socioNumId}` }],
           [{ text: "👥 Clientes atendidos", callback_data: `pregunta_clientes_${socioNumId}` }],
           [{ text: "✏️ Pregunta personalizada", callback_data: `pregunta_personalizada_${socioNumId}` }],
-          [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}` }]
+          [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}_${productoNumId}` }]
         ]
       }
     };
@@ -1746,11 +1762,12 @@ Responde la pregunta del usuario de forma amigable y útil, basándote en estos 
         
         const respuestaIA = await consultarDeepSeek(texto, contexto);
         
+        // Necesitas productoNumId. Si no lo tienes, usa 1 como placeholder
         const botonesContinuar = {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: "🔍 Hacer otra pregunta", callback_data: `seguir_preguntando_${socioNumId}` }],
-                    [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}` }]
+                    [{ text: "🔍 Hacer otra pregunta", callback_data: `seguir_preguntando_${socioNumId}_1` }],
+                    [{ text: "❌ Salir", callback_data: `salir_consulta_${socioNumId}_1` }]
                 ]
             }
         };
