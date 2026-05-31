@@ -1013,199 +1013,181 @@ bot.on("callback_query", async (query) => {
 
 // ============= REENVÍO DE MENSAJES =============
 bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  
-  // LOG PARA VER START CRUDO
-  if (msg.text && msg.text.startsWith('/start')) {
-    console.log("🔥 START CRUDO:", JSON.stringify(msg.text));
-  }
-  
-  if (msg.text && msg.text.startsWith('/')) return;
-  
-  const destinoId = conversacionesActivas[chatId];
-  if (!destinoId) return;
-  
-  // Verificar si es texto (bloquear fotos, videos, audios)
-  if (!msg.text) {
-    const mensajeAdvertencia = "📵 *No está permitido enviar fotos, videos o audios en esta conversación.*\n\nSolo se permiten mensajes de texto por seguridad.";
-    await bot.sendMessage(chatId, mensajeAdvertencia, { parse_mode: "Markdown" });
-    return;
-  }
-  
-  // Determinar quién es el remitente
-  let remitente = '';
-  const socioResult = await pool.query(`SELECT id FROM socios WHERE telegram_chat_id = $1`, [String(chatId)]);
-  if (socioResult.rows.length > 0) {
-    remitente = 'vendedor';
-  } else {
-    remitente = 'cliente';
-  }
-  
-  // Detectar intención del cliente (abortar/completar)
-  if (remitente === 'cliente') {
+    const chatId = msg.chat.id;
+    
+    if (msg.text && msg.text.startsWith('/')) return;
+    
+    // 🔥 SI ES PREGUNTA PERSONALIZADA, NO REENVIAR
+    const sesion = sesionesConsulta[chatId];
+    if (sesion && sesion.personalizada) {
+        console.log(`📵 [REENVÍO] Ignorando mensaje porque es pregunta personalizada`);
+        return;
+    }
+    
     const destinoId = conversacionesActivas[chatId];
-    console.log("🔍 Cliente detectado - chatId:", chatId, "destinoId:", destinoId);
+    if (!destinoId) return;
     
-    const intencion = await detectarIntencion(msg.text);
-    console.log("🔍 Intención detectada:", intencion);
+    console.log(`📤 [REENVÍO] Reenviando mensaje a ${destinoId}`);
     
-    if (intencion.intencion === 'abortar' && intencion.confianza > 0.7) {
-      console.log("✅ Entró a ABORTAR");
-      let aviso = "";
-      const socioUuidResult = await pool.query(
-        `SELECT id FROM socios WHERE telegram_chat_id = $1`,
-        [destinoId]
-      );
-      const socioUuid = socioUuidResult.rows[0]?.id;
-      console.log("🔍 socioUuid encontrado:", socioUuid);
-      
-      const productoResult = await pool.query(
-        `SELECT puntos_pendientes, estado FROM productos_socios WHERE socio_id = $1 AND estado IN ('activo', 'en_negociacion') ORDER BY created_at DESC LIMIT 1`,
-        [socioUuid]
-      );
-      console.log("🔍 productoResult estado:", productoResult.rows[0]?.estado);
-      console.log("🔍 productoResult puntos_pendientes:", productoResult.rows[0]?.puntos_pendientes);
-      
-      const puntosPendientes = productoResult.rows[0]?.puntos_pendientes || [];
-      console.log("📋 Puntos pendientes para aviso:", puntosPendientes.length);
-      if (puntosPendientes.length > 0) {
-        aviso = `⚠️ *El vendedor aún no ha aclarado toda la información importante sobre el producto.*\n\n`;
-      }
-      
-      const botones = {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "❌ SÍ, ABORTAR CONVERSACIÓN", callback_data: `abortar_${chatId}` }],
-            [{ text: "🔄 NO, SEGUIR CONVERSACIÓN", callback_data: `seguir_${chatId}` }]
-          ]
-        }
-      };
-      await bot.sendMessage(chatId, aviso + "⚠️ *¿Quieres cancelar esta compra?*", { parse_mode: "Markdown", ...botones });
-      return;
+    // Verificar si es texto (bloquear fotos, videos, audios)
+    if (!msg.text) {
+        const mensajeAdvertencia = "📵 *No está permitido enviar fotos, videos o audios en esta conversación.*\n\nSolo se permiten mensajes de texto por seguridad.";
+        await bot.sendMessage(chatId, mensajeAdvertencia, { parse_mode: "Markdown" });
+        return;
     }
     
-    if (intencion.intencion === 'completar' && intencion.confianza > 0.7) {
-      console.log("✅ Entró a COMPLETAR");
-      let aviso = "";
-      const socioUuidResult = await pool.query(
-        `SELECT id FROM socios WHERE telegram_chat_id = $1`,
-        [destinoId]
-      );
-      const socioUuid = socioUuidResult.rows[0]?.id;
-      console.log("🔍 socioUuid encontrado:", socioUuid);
-      
-      const productoResult = await pool.query(
-        `SELECT puntos_pendientes, estado FROM productos_socios WHERE socio_id = $1 AND estado IN ('activo', 'en_negociacion') ORDER BY created_at DESC LIMIT 1`,
-        [socioUuid]
-      );
-      console.log("🔍 productoResult estado:", productoResult.rows[0]?.estado);
-      console.log("🔍 productoResult puntos_pendientes:", productoResult.rows[0]?.puntos_pendientes);
-      
-      const puntosPendientes = productoResult.rows[0]?.puntos_pendientes || [];
-      console.log("📋 Puntos pendientes para aviso:", puntosPendientes.length);
-      if (puntosPendientes.length > 0) {
-        aviso = `⚠️ *El vendedor aún no ha aclarado toda la información importante sobre el producto.*\n\n`;
-      }
-      
-      const botones = {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "✅ SÍ, COMPARTIR MI NÚMERO", callback_data: `completar_${chatId}` }],
-            [{ text: "🔄 NO, SEGUIR CONVERSACIÓN", callback_data: `seguir_${chatId}` }]
-          ]
-        }
-      };
-      await bot.sendMessage(chatId, aviso + "✅ *¿Quieres completar la compra y compartir tu número con el vendedor?*", { parse_mode: "Markdown", ...botones });
-      return;
+    // Determinar quién es el remitente
+    let remitente = '';
+    const socioResult = await pool.query(`SELECT id FROM socios WHERE telegram_chat_id = $1`, [String(chatId)]);
+    if (socioResult.rows.length > 0) {
+        remitente = 'vendedor';
+    } else {
+        remitente = 'cliente';
     }
-    console.log("❌ No entró a ninguna intención relevante");
-  }
-  
-  // Intervención de IA (DeepSeek)
-  const analisis = await analizarMensajeConIA(msg.text, {});
-  
-  if (!analisis.aprobado) {
-    // Bloquear mensaje y responder al cliente
-    await bot.sendMessage(chatId, analisis.respuesta_ia);
-    return; // No reenviar al vendedor
-  }
-  
-   // Si el mensaje es del vendedor, verificar puntos pendientes
-  if (remitente === 'vendedor') {
-    const productoResult = await pool.query(
-      `SELECT id, puntos_pendientes FROM productos_socios WHERE socio_id = (SELECT id FROM socios WHERE telegram_chat_id = $1) AND estado = 'en_negociacion' ORDER BY created_at DESC LIMIT 1`,
-      [String(chatId)]
-    );
     
-    if (productoResult.rows.length > 0 && productoResult.rows[0].puntos_pendientes) {
-      let puntosPendientes = productoResult.rows[0].puntos_pendientes;
-      
-      if (puntosPendientes.length > 0) {
-        // Verificar qué puntos ya cubrió el vendedor en este mensaje
-        const analisis = await verificarPuntosCubiertos(msg.text, puntosPendientes);
+    // Detectar intención del cliente (abortar/completar)
+    if (remitente === 'cliente') {
+        const destinoId = conversacionesActivas[chatId];
+        console.log("🔍 Cliente detectado - chatId:", chatId, "destinoId:", destinoId);
         
-        if (analisis.cubiertos && analisis.cubiertos.length > 0) {
-                   // Eliminar los puntos ya cubiertos
-          puntosPendientes = puntosPendientes.filter(p => 
-            !analisis.cubiertos.some(c => c === p.texto)
-          );
-          await pool.query(
-            `UPDATE productos_socios SET puntos_pendientes = $1 WHERE id = $2`,
-            [JSON.stringify(puntosPendientes), productoResult.rows[0].id]
-          );
-          
-
+        const intencion = await detectarIntencion(msg.text);
+        console.log("🔍 Intención detectada:", intencion);
+        
+        if (intencion.intencion === 'abortar' && intencion.confianza > 0.7) {
+            console.log("✅ Entró a ABORTAR");
+            let aviso = "";
+            const socioUuidResult = await pool.query(
+                `SELECT id FROM socios WHERE telegram_chat_id = $1`,
+                [destinoId]
+            );
+            const socioUuid = socioUuidResult.rows[0]?.id;
+            console.log("🔍 socioUuid encontrado:", socioUuid);
+            
+            const productoResult = await pool.query(
+                `SELECT puntos_pendientes, estado FROM productos_socios WHERE socio_id = $1 AND estado IN ('activo', 'en_negociacion') ORDER BY created_at DESC LIMIT 1`,
+                [socioUuid]
+            );
+            console.log("🔍 productoResult estado:", productoResult.rows[0]?.estado);
+            console.log("🔍 productoResult puntos_pendientes:", productoResult.rows[0]?.puntos_pendientes);
+            
+            const puntosPendientes = productoResult.rows[0]?.puntos_pendientes || [];
+            console.log("📋 Puntos pendientes para aviso:", puntosPendientes.length);
+            if (puntosPendientes.length > 0) {
+                aviso = `⚠️ *El vendedor aún no ha aclarado toda la información importante sobre el producto.*\n\n`;
+            }
+            
+            const botones = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "❌ SÍ, ABORTAR CONVERSACIÓN", callback_data: `abortar_${chatId}` }],
+                        [{ text: "🔄 NO, SEGUIR CONVERSACIÓN", callback_data: `seguir_${chatId}` }]
+                    ]
+                }
+            };
+            await bot.sendMessage(chatId, aviso + "⚠️ *¿Quieres cancelar esta compra?*", { parse_mode: "Markdown", ...botones });
+            return;
         }
         
-        if (puntosPendientes.length > 0) {
-          const mensajePendientes = puntosPendientes.map(p => `• ${p.texto}`).join('\n');
-          await bot.sendMessage(chatId, 
-            `⚠️ *Todavía debes aclarar estos puntos:*\n\n${mensajePendientes}\n\nPor favor responde incluyendo esta información.`,
-            { parse_mode: "Markdown" }
-          );
-          
+        if (intencion.intencion === 'completar' && intencion.confianza > 0.7) {
+            console.log("✅ Entró a COMPLETAR");
+            let aviso = "";
+            const socioUuidResult = await pool.query(
+                `SELECT id FROM socios WHERE telegram_chat_id = $1`,
+                [destinoId]
+            );
+            const socioUuid = socioUuidResult.rows[0]?.id;
+            console.log("🔍 socioUuid encontrado:", socioUuid);
+            
+            const productoResult = await pool.query(
+                `SELECT puntos_pendientes, estado FROM productos_socios WHERE socio_id = $1 AND estado IN ('activo', 'en_negociacion') ORDER BY created_at DESC LIMIT 1`,
+                [socioUuid]
+            );
+            console.log("🔍 productoResult estado:", productoResult.rows[0]?.estado);
+            console.log("🔍 productoResult puntos_pendientes:", productoResult.rows[0]?.puntos_pendientes);
+            
+            const puntosPendientes = productoResult.rows[0]?.puntos_pendientes || [];
+            console.log("📋 Puntos pendientes para aviso:", puntosPendientes.length);
+            if (puntosPendientes.length > 0) {
+                aviso = `⚠️ *El vendedor aún no ha aclarado toda la información importante sobre el producto.*\n\n`;
+            }
+            
+            const botones = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "✅ SÍ, COMPARTIR MI NÚMERO", callback_data: `completar_${chatId}` }],
+                        [{ text: "🔄 NO, SEGUIR CONVERSACIÓN", callback_data: `seguir_${chatId}` }]
+                    ]
+                }
+            };
+            await bot.sendMessage(chatId, aviso + "✅ *¿Quieres completar la compra y compartir tu número con el vendedor?*", { parse_mode: "Markdown", ...botones });
+            return;
         }
-      }
+        console.log("❌ No entró a ninguna intención relevante");
     }
-  }
-  
-  // Guardar mensaje en RAM temporal
-  console.log("📝 Guardando en RAM:", chatId, msg.text);
-  if (!conversacionesTemporales[chatId]) conversacionesTemporales[chatId] = [];
-  conversacionesTemporales[chatId].push({
-    remitente: remitente,
-    mensaje: msg.text,
-    timestamp: Date.now()
-  });
-  if (!conversacionesTemporales[chatId]) conversacionesTemporales[chatId] = [];
-  conversacionesTemporales[chatId].push({
-    remitente: remitente,
-    mensaje: msg.text,
-    timestamp: Date.now()
-  });
-  conversacionesTemporales[chatId].push({
-    remitente: remitente,
-    mensaje: msg.text,
-    timestamp: Date.now()
-  });
-  
-  // También guardar en el destino para tener el historial completo
-  if (!conversacionesTemporales[destinoId]) conversacionesTemporales[destinoId] = [];
-  conversacionesTemporales[destinoId].push({
-    remitente: remitente,
-    mensaje: msg.text,
-    timestamp: Date.now()
-  });
-  
-  // Reenviar el mensaje
-  try {
-    await bot.sendMessage(destinoId, msg.text);
-  } catch (e) {
-    console.error("Error reenviando mensaje:", e.message);
-  }
-  
-  // Intervención de IA (opcional - por ahora solo guardamos)
-  // Aquí llamaremos a DeepSeek más adelante
+    
+    // Intervención de IA (DeepSeek)
+    const analisis = await analizarMensajeConIA(msg.text, {});
+    
+    if (!analisis.aprobado) {
+        await bot.sendMessage(chatId, analisis.respuesta_ia);
+        return;
+    }
+    
+    // Si el mensaje es del vendedor, verificar puntos pendientes
+    if (remitente === 'vendedor') {
+        const productoResult = await pool.query(
+            `SELECT id, puntos_pendientes FROM productos_socios WHERE socio_id = (SELECT id FROM socios WHERE telegram_chat_id = $1) AND estado = 'en_negociacion' ORDER BY created_at DESC LIMIT 1`,
+            [String(chatId)]
+        );
+        
+        if (productoResult.rows.length > 0 && productoResult.rows[0].puntos_pendientes) {
+            let puntosPendientes = productoResult.rows[0].puntos_pendientes;
+            
+            if (puntosPendientes.length > 0) {
+                const analisis = await verificarPuntosCubiertos(msg.text, puntosPendientes);
+                
+                if (analisis.cubiertos && analisis.cubiertos.length > 0) {
+                    puntosPendientes = puntosPendientes.filter(p => 
+                        !analisis.cubiertos.some(c => c === p.texto)
+                    );
+                    await pool.query(
+                        `UPDATE productos_socios SET puntos_pendientes = $1 WHERE id = $2`,
+                        [JSON.stringify(puntosPendientes), productoResult.rows[0].id]
+                    );
+                }
+                
+                if (puntosPendientes.length > 0) {
+                    const mensajePendientes = puntosPendientes.map(p => `• ${p.texto}`).join('\n');
+                    await bot.sendMessage(chatId, 
+                        `⚠️ *Todavía debes aclarar estos puntos:*\n\n${mensajePendientes}\n\nPor favor responde incluyendo esta información.`,
+                        { parse_mode: "Markdown" }
+                    );
+                }
+            }
+        }
+    }
+    
+    // Guardar mensaje en RAM temporal
+    console.log("📝 Guardando en RAM:", chatId, msg.text);
+    if (!conversacionesTemporales[chatId]) conversacionesTemporales[chatId] = [];
+    conversacionesTemporales[chatId].push({
+        remitente: remitente,
+        mensaje: msg.text,
+        timestamp: Date.now()
+    });
+    
+    if (!conversacionesTemporales[destinoId]) conversacionesTemporales[destinoId] = [];
+    conversacionesTemporales[destinoId].push({
+        remitente: remitente,
+        mensaje: msg.text,
+        timestamp: Date.now()
+    });
+    
+    try {
+        await bot.sendMessage(destinoId, msg.text);
+    } catch (e) {
+        console.error("Error reenviando mensaje:", e.message);
+    }
 });
 
 bot.onText(/\/finalizar/, async (msg) => {
@@ -1670,18 +1652,24 @@ bot.onText(/\/calificar/, async (msg) => {
 });
 
 // ============= MANEJAR PREGUNTAS PERSONALIZADAS (IA) - PRIMERO =============
+// ============= MANEJAR PREGUNTAS PERSONALIZADAS (IA) =============
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const texto = msg.text;
     
-    console.log("📨 MENSAJE RECIBIDO:", texto);
+    console.log(`🤖 [IA HANDLER] Entró - texto: "${texto}"`);
     
     if (!texto || texto.startsWith('/')) return;
     
     const sesion = sesionesConsulta[chatId];
-    if (!sesion || !sesion.personalizada) return;
+    console.log(`🤖 [IA HANDLER] sesion: ${JSON.stringify(sesion)}`);
     
-    console.log("🤖 [IA HANDLER] Procesando pregunta personalizada - NO se reenviará");
+    if (!sesion || !sesion.personalizada) {
+        console.log(`🤖 [IA HANDLER] No es pregunta personalizada, saliendo`);
+        return;
+    }
+    
+    console.log(`✅ [IA HANDLER] ¡ES PREGUNTA PERSONALIZADA! Procesando...`);
     
     const socioNumId = sesion.socioNumId;
     
@@ -1700,7 +1688,6 @@ bot.on('message', async (msg) => {
         const socio = socioResult.rows[0];
         const socioUuid = socio.id;
         
-        // Obtener el telegram_chat_id del vendedor
         const vendedorTelegramResult = await pool.query(
             `SELECT telegram_chat_id FROM socios WHERE id = $1`,
             [socioUuid]
@@ -1730,7 +1717,6 @@ bot.on('message', async (msg) => {
         
         const calificacion = parseFloat(socio.estrellas) || 0;
         
-        // Obtener los últimos 10 mensajes de la conversación
         const mensajesRecientes = await pool.query(
             `SELECT remitente, mensaje, created_at 
              FROM conversaciones 
@@ -1775,7 +1761,8 @@ Responde la pregunta del usuario de forma amigable y útil, basándote en estos 
         );
         
         delete sesionesConsulta[chatId];
-        return; // ← CRUCIAL: evita que otros manejadores procesen este mensaje
+        console.log(`✅ [IA HANDLER] Respuesta enviada, sesión eliminada`);
+        return;
         
     } catch (error) {
         console.error("Error en consulta IA:", error);
