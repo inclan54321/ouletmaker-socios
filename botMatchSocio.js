@@ -617,7 +617,7 @@ bot.onText(/\/start confirmar_(.+)/, async (msg, match) => {
         delete conversacionesTemporales[chatId];
         delete conversacionesTemporales[vendedorId];
       }
-    }, 2 * 60 * 1000);
+    }, 45 * 60 * 1000);
     
     // Resto del código (mostrar mensaje y botones)
     const socioResult = await pool.query(
